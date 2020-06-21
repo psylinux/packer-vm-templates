@@ -1,0 +1,99 @@
+{
+  "variables": {
+    "iso_url": "http://mirror.ufam.edu.br/centos/7/isos/x86_64/CentOS-7-x86_64-Minimal-1804.iso",
+    "iso_checksum": "714acc0aefb32b7d51b515e25546835e55a90da9fb00417fbee2d03a62801efd",
+    "iso_checksum_type": "sha256",
+    "artifact_description": "CentOS 7.4 (build 1708): CentOS-7-x86_64-Minimal-1708.iso, 20GB /, nothing extra",
+    "artifact_version": "7.4.1708",
+    "redhat_release": "7.4",
+    "ssh_username": "vagrant",
+    "ssh_password": "vagrant",
+    "disk_size": "20480"
+  },
+
+  "builders": [
+    {   
+      "name": "centos-{{user `redhat_release`}}",
+      "type": "virtualbox-iso",
+      "vm_name": "endpoint-monitoring",
+
+      "boot_wait": "10s",
+      "disk_size": "{{user `disk_size`}}",
+      "guest_os_type": "RedHat_64",
+      "http_directory": "http",
+
+      "iso_url": "{{user `iso_url`}}",
+      "iso_checksum": "{{user `iso_checksum`}}",
+      "iso_checksum_type": "{{user `iso_checksum_type`}}",
+      "guest_additions_path": "VBoxGuestAdditions.iso",
+
+      "boot_command": [
+        "<tab> text ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/centos.prefs<enter><wait>"
+      ],
+
+      "shutdown_command": "sudo -S /sbin/halt -h -p",
+      "shutdown_timeout" : "5m",
+      
+      "ssh_wait_timeout": "15m",
+      "ssh_username": "{{user `ssh_username`}}",
+      "ssh_password": "{{user `ssh_password`}}",
+      "ssh_port": 22,
+      "ssh_pty": true,
+
+      "output_directory": "builds",
+
+      "vboxmanage": [
+        [  "modifyvm",  "{{.Name}}",  "--memory",  "1024" ],
+        [  "modifyvm",  "{{.Name}}",  "--cpus",  "2" ]
+      ],
+      "hard_drive_interface": "sata",
+      "virtualbox_version_file": ".vbox_version",
+
+      "export_opts":
+      [
+        "--manifest",
+        "--vsys", "0",
+        "--description", "{{user `artifact_description`}}",
+        "--version", "{{user `artifact_version`}}"
+      ]
+
+    }
+  ], 
+  
+  "post-processors": [
+    {
+      "output": "build/nome-do-box.box",
+      "compression_level": "6",
+      "type": "vagrant"
+    }
+  ],
+  
+  "provisioners": [
+    {
+      "type": "file",
+      "source": "files",
+      "destination": "/tmp"
+    },
+    {
+      "type": "shell",
+      "execute_command": "{{.Vars}} sudo -S -E bash '{{.Path}}'",
+      "start_retry_timeout": "1m",
+      "expect_disconnect": true,
+      "pause_before": "5s",
+      "override": {
+        "centos-{{user `redhat_release`}}": {
+          "scripts": [
+            "scripts/centos/base.sh",
+            "scripts/common/vagrant.sh",
+            "scripts/common/motd.sh",
+            "scripts/common/virtualbox.sh",
+            "scripts/centos/lamp.sh",
+            "scripts/centos/google-chrome.sh",
+            "scripts/centos/metasploit.sh",
+            "scripts/common/cleanup.sh"
+          ]
+        }
+      }
+    }
+  ]
+}
